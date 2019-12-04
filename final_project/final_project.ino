@@ -6,13 +6,44 @@
 #define GPIO_PB4 12  /*   MISO     */
 #define GPIO_PB5 13  /*   SCK      */
 
+/* Analog Ports */
 #define LM35DZ_ADC_PIN A2
+
+/* Definitions */
 #define xDelay   100
 #define N_SAMPLES 100
+
+#define NSTATES 3
+
+enum fsm_states
+{
+  GET_SAMPLES,
+  CALC_VARIANCE,
+  PRINT_RESULT
+};
+
+struct fsm_sys_t
+{
+  void(*fptr)();
+  fsm_states next[NSTATES];
+};
 
 float celcius_temp;
 float data;
 float vout;
+static fsm_states current_st = CALC_VARIANCE;
+
+void LM35DZ_print_temperature_celsius(void);
+float LM35DZ_get_temperature_celsius(void);
+void LM35DZ_calc_variance(void);
+
+static fsm_sys_t FSM_SYSTEM[NSTATES]=
+{
+  {LM35DZ_print_temperature_celsius, {CALC_VARIANCE, PRINT_RESULT,   GET_SAMPLES}},
+  {LM35DZ_calc_variance,             {PRINT_RESULT,   GET_SAMPLES, CALC_VARIANCE}},
+  {LM35DZ_print_temperature_celsius, {GET_SAMPLES,  CALC_VARIANCE,  PRINT_RESULT}}
+};
+
 
 void setup()
 {
@@ -22,10 +53,12 @@ void setup()
 
 void loop()
 {
-  LM35DZ_print_temperature_celcius();
+    FSM_SYSTEM[current_st].fptr();
+    current_st = FSM_SYSTEM[current_st].next[0];
+      //LM35DZ_print_temperature_celcius();
 }
 
-float LM35DZ_get_temperature_celcius(void)
+float LM35DZ_get_temperature_celsius(void)
 {
   float celcius_temp;
   float data;
@@ -39,11 +72,16 @@ float LM35DZ_get_temperature_celcius(void)
   return celcius_temp;
 }
 
-void LM35DZ_print_temperature_celcius(void)
+void LM35DZ_print_temperature_celsius(void)
 {
   float celcius_temp;
-  celcius_temp = LM35DZ_get_temperature_celcius();
-  Serial.print(LM35DZ_get_temperature_celcius());
+  celcius_temp = LM35DZ_get_temperature_celsius();
+  Serial.print(LM35DZ_get_temperature_celsius());
   Serial.print(" °C");
   Serial.print("\n");
+}
+
+void LM35DZ_calc_variance(void)
+{
+  
 }
