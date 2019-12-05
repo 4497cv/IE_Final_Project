@@ -1,6 +1,6 @@
-#
+
 /* DIGITAL PORTS */
-#define GPIO_PB0 8   /*   ICP1     */
+#define DHT11_PIN 8   /*   ICP1     */
 #define GPIO_PB1 9   /*   OC1A     */
 #define GPIO_PB2 10  /*   SS/OC1B  */
 #define GPIO_PB3 11  /*   MOSI/OC2 */
@@ -9,8 +9,9 @@
 
 /* Analog Ports */
 #define LM35DZ_ADC_PIN A2
-#define DHT11_ADC_PIN  A1
-#define MQ2_ADC_PIN    A0
+#define MQ2_ADC_PIN    A1
+
+#define SERIAL_BAUDRATE 115200
 
 /* Definitions */
 #define xDelay   100
@@ -25,7 +26,7 @@ static float g_current_temp;
 
 void LM35DZ_print_temperature_celsius(void);
 float LM35DZ_get_temperature_celsius(void);
-void LM35DZ_calc_variance(void);
+void LM35DZ_calculate_standard_deviation(void);
 void LM35DZ_print_samples(void);
 
 enum fsm_states
@@ -53,16 +54,18 @@ static fsm_states current_st = CALC_VARIANCE;
 void setup()
 {
   pinMode(LM35DZ_ADC_PIN, INPUT);
-
+  
   samples_counter = 0;
   
-  Serial.begin(115200);
+  Serial.begin(SERIAL_BAUDRATE);
 }
 
 void loop()
 {
   //LM35DZ_get_samples();
-  LM35DZ_print_temperature_celsius();
+  //LM35DZ_print_temperature_celsius();
+  //DHT.read11(DHT11_PIN);
+  
 }
 
 /*  ---------- LM35DZ functions ------------- */
@@ -97,7 +100,7 @@ void  LM35DZ_get_samples(void)
   if(NSAMPLES == samples_counter)
   {
     //LM35DZ_print_samples();
-    LM35DZ_calc_variance();
+    LM35DZ_calculate_standard_deviation();
     Serial.print(g_current_temp);
     Serial.print(" C");
     Serial.print("\n\r");
@@ -128,7 +131,7 @@ void LM35DZ_print_samples(void)
   }
 }
 
-void LM35DZ_calc_std_(void)
+void LM35DZ_calculate_standard_deviation(void)
 {
   float total_average;
   float sigma_sqrrt_val_av;
@@ -158,4 +161,5 @@ void LM35DZ_calc_std_(void)
   {
      g_current_temp = total_average;
   }
+
 }
