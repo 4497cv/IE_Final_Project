@@ -1,11 +1,21 @@
+#include <Adafruit_Sensor.h>
+#include <DHT.h>
+#include <DHT_U.h>
+
+/*
+    \file:   final_project.ino
+    \brief:   
+    \author: César Villarreal @4497cv
+    \date:   04/12/2019
+*/
 
 /* DIGITAL PORTS */
-#define DHT11_PIN 8   /*   ICP1     */
-#define GPIO_PB1 9   /*   OC1A     */
-#define GPIO_PB2 10  /*   SS/OC1B  */
-#define GPIO_PB3 11  /*   MOSI/OC2 */
-#define GPIO_PB4 12  /*   MISO     */
-#define GPIO_PB5 13  /*   SCK      */
+#define GPIO_PB0 8   /*   ICP1         */
+#define GPIO_PB1 9   /*   OC1A: DHT11  */
+#define GPIO_PB2 10  /*   SS/OC1B      */
+#define GPIO_PB3 11  /*   MOSI/OC2     */
+#define GPIO_PB4 12  /*   MISO         */
+#define GPIO_PB5 13  /*   SCK          */
 
 /* Analog Ports */
 #define LM35DZ_ADC_PIN A2
@@ -24,25 +34,29 @@ static float temperature_samples[NSAMPLES];
 static unsigned int samples_counter;
 static float g_current_temp;
 
-void LM35DZ_print_temperature_celsius(void);
-float LM35DZ_get_temperature_celsius(void);
-void LM35DZ_calculate_standard_deviation(void);
-void LM35DZ_print_samples(void);
+/* ~~~~~~~~~~ function declarations ~~~~~~~~~~  */
+static float LM35DZ_get_temperature_celsius(void);
+static void LM35DZ_print_temperature_celsius(void);
+static void LM35DZ_get_samples(void);
+static void LM35DZ_print_samples(void);
+static void LM35DZ_calculate_standard_deviation(void);
 
-enum fsm_states
-{
-  GET_SAMPLES,
-  CALC_VARIANCE,
-  PRINT_VARIANCE,
-};
+DHT dht(GPIO_PB1, DHT11);
 
-struct fsm_sys_t
-{
-  void(*fptr)();
-  fsm_states next[NSTATES];
-};
+//enum fsm_states
+//{
+//  GET_SAMPLES,
+//  CALC_VARIANCE,
+//  PRINT_VARIANCE,
+//};
 
-static fsm_states current_st = CALC_VARIANCE;
+//struct fsm_sys_t
+//{
+//  void(*fptr)();
+//  fsm_states next[NSTATES];
+//};
+
+//static fsm_states current_st = CALC_VARIANCE;
 
 //static fsm_sys_t FSM_SYSTEM[NSTATES]=
 //{
@@ -51,6 +65,7 @@ static fsm_states current_st = CALC_VARIANCE;
 //  {LM35DZ_print_temperature_celsius, {GET_SAMPLES,  CALC_VARIANCE,  PRINT_RESULT}}
 //};
 
+/* ~~~~~~~~~~ system setup (config) ~~~~~~~~~~  */
 void setup()
 {
   pinMode(LM35DZ_ADC_PIN, INPUT);
@@ -60,18 +75,29 @@ void setup()
   Serial.begin(SERIAL_BAUDRATE);
 }
 
+/* ~~~~~~~~~~ infinite loop ~~~~~~~~~~  */
 void loop()
 {
   //LM35DZ_get_samples();
   //LM35DZ_print_temperature_celsius();
   //DHT.read11(DHT11_PIN);
+    
+  float humidity;
   
+  humidity = dht.readHumidity(GPIO_PB1);
+  Serial.print("Humidity = ");
+  Serial.print(humidity);
+  Serial.print(" RH \r\n");
 }
 
-/*  ---------- LM35DZ functions ------------- */
+/* ~~~~~~~~~~ LM35DZ functions ~~~~~~~~~~  */
 
-
-float LM35DZ_get_temperature_celsius(void)
+/*  
+    \brief      This function returns the actual temperature value in celsius
+    \param[in]  void
+    \param[out] float
+*/  
+static float LM35DZ_get_temperature_celsius(void)
 {
   float celcius_temp;
   float data;
@@ -86,7 +112,12 @@ float LM35DZ_get_temperature_celsius(void)
   return celcius_temp;
 }
 
-void LM35DZ_print_temperature_celsius(void)
+/*  
+    \brief      This function prints the actual temperature value in celsius
+    \param[in]  void
+    \param[out] float
+*/  
+static void LM35DZ_print_temperature_celsius(void)
 {
   float celcius_temp;
   celcius_temp = LM35DZ_get_temperature_celsius();
@@ -95,7 +126,12 @@ void LM35DZ_print_temperature_celsius(void)
   Serial.print("\n\r");
 }
 
-void  LM35DZ_get_samples(void)
+/*  
+    \brief    
+    \param[in]  void
+    \param[out] void
+*/  
+static void LM35DZ_get_samples(void)
 {
   if(NSAMPLES == samples_counter)
   {
@@ -118,7 +154,12 @@ void  LM35DZ_get_samples(void)
   }
 }
 
-void LM35DZ_print_samples(void)
+/*  
+    \brief      This function prints the samples array
+    \param[in]  void
+    \param[out] void
+*/  
+static void LM35DZ_print_samples(void)
 {
   uint8_t i;
   for(i=0; i < NSAMPLES; i++)
@@ -131,7 +172,13 @@ void LM35DZ_print_samples(void)
   }
 }
 
-void LM35DZ_calculate_standard_deviation(void)
+/*  
+    \brief      This function calculates the standard deviation for the
+                temperature and updates the current global temp. value
+    \param[in]  void
+    \param[out] void
+*/  
+static void LM35DZ_calculate_standard_deviation(void)
 {
   float total_average;
   float sigma_sqrrt_val_av;
@@ -149,13 +196,13 @@ void LM35DZ_calculate_standard_deviation(void)
   
   std_dev = sqrt(sigma_sqrrt_val_av/(NSAMPLES-1));
 
-#ifdef DEBUG
-  Serial.print("the total variance is: ");
-  Serial.print(variance);
-  Serial.print("| Number of samples: ");
-  Serial.print(NSAMPLES);
-  Serial.print("\n\r");
-#endif
+  #ifdef DEBUG
+    Serial.print("the total variance is: ");
+    Serial.print(variance);
+    Serial.print("| Number of samples: ");
+    Serial.print(NSAMPLES);
+    Serial.print("\n\r");
+  #endif
 
   if(std_dev < 0.8)
   {
