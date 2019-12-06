@@ -6,20 +6,15 @@
     \file:   final_project.ino
     \brief:   
     \author: César Villarreal @4497cv
-    \date:   04/12/2019
+    \date:   05/12/2019
 */
 
-/* DIGITAL PORTS */
-#define GPIO_PB0 8   /*   ICP1         */
-#define GPIO_PB1 9   /*   OC1A: DHT11  */
-#define GPIO_PB2 10  /*   SS/OC1B      */
-#define GPIO_PB3 11  /*   MOSI/OC2     */
-#define GPIO_PB4 12  /*   MISO         */
-#define GPIO_PB5 13  /*   SCK          */
-
+/* Digital Ports */
+#define MQ2_IO_PIN 10        /*     SS/OC1B      */
+#define DHT_IO_PIN 9
 /* Analog Ports */
 #define LM35DZ_ADC_PIN A2
-#define MQ2_ADC_PIN    A1
+#define MQ2_ADC_PIN    A0
 
 #define SERIAL_BAUDRATE 115200
 
@@ -41,17 +36,21 @@ static void LM35DZ_get_samples(void);
 static void LM35DZ_print_samples(void);
 static void LM35DZ_calculate_standard_deviation(void);
 
-static DHT dht(GPIO_PB1, DHT11);
+static DHT dht(DHT_IO_PIN, DHT11);
 
 /* ~~~~~~~~~~ system setup (config) ~~~~~~~~~~  */
 void setup()
 {
   /* configure adc pin for the temperature sensor */
   pinMode(LM35DZ_ADC_PIN, INPUT);
+  /* configure adc pin for the gas sensor */
+  pinMode(MQ2_ADC_PIN, INPUT);
+  
   /* start serial communication (uart) @ 115200 baud/s */
   Serial.begin(SERIAL_BAUDRATE);
 
-    
+  //MQ2_warmup_sensor();
+  
   samples_counter = 0;
 }
 
@@ -62,12 +61,16 @@ void loop()
   //LM35DZ_print_temperature_celsius();
   //DHT.read11(DHT11_PIN);
     
-  float humidity;
-  
-  humidity = dht.readHumidity(GPIO_PB1);
-  Serial.print("Humidity = ");
-  Serial.print(humidity);
-  Serial.print(" RH \r\n");
+//  float humidity;
+//  
+//  humidity = dht.readHumidity(GPIO_PB1);
+//  Serial.print("Humidity = ");
+//  Serial.print(humidity);
+//  Serial.print(" RH \r\n");
+
+  MQ2_read_sensor();
+
+  //MQ2_read_RO();
 }
 
 /* ~~~~~~~~~~ LM35DZ functions ~~~~~~~~~~  */
@@ -188,5 +191,84 @@ static void LM35DZ_calculate_standard_deviation(void)
   {
      g_current_temp = total_average;
   }
+}
 
+
+/*  MQ2 Functions */
+static void MQ2_warmup_sensor(void)
+{
+  Serial.print("Warming up....\r\n");
+  delay(20000); 
+}
+
+static void MQ2_read_RO(void)
+{
+  float sensorValue = 0;
+  const float RL = 1.0;
+  const float CLEAN_AIR_RATIO = 9.80;
+  float RS;
+  float RO;
+  float sensor_volt;
+  float RS_air;
+
+  for(int i=0; i < 100; i++)
+  {
+    sensorValue += analogRead(MQ2_ADC_PIN);
+  }
+
+  sensorValue = sensorValue/100.0;
+
+  sensor_volt = (sensorValue/1024)*5.0;
+  
+  RS_air = (5.0 - sensor_volt)/sensor_volt;
+  RO = RS_air/9.8;
+  
+  Serial.print("sensor_volt: ");
+  Serial.print(sensor_volt);
+  Serial.print("V \n");
+  Serial.print("Ro: ");
+  Serial.print(RO);
+  Serial.print(" \n\r");
+
+  delay(2000);
+}
+
+
+static void MQ2_read_sensor(void)
+{
+ //0.46 
+
+   float sensorValue = 0;
+  const float RL = 1.0;
+  const float CLEAN_AIR_RATIO = 9.80;
+  float RS;
+  float RO;
+  float sensor_volt;
+  float RS_gas;
+  float ratio;
+
+  for(int i=0; i < 100; i++)
+  {
+    sensorValue += analogRead(MQ2_ADC_PIN);
+  }
+
+  sensorValue = sensorValue/100.0;
+
+  sensor_volt = (sensorValue/1024)*5.0;
+  
+  RS_gas = (5.0 - sensor_volt)/sensor_volt;
+  ratio= RS_gas/0.49;
+  
+  Serial.print("sensor_volt: ");
+  Serial.print(sensor_volt);
+  Serial.print("V \n\r");
+  
+  Serial.print("rs_ratio = ");
+  Serial.print(RS_gas);
+  Serial.print(" \n\r");
+  Serial.print("Rs/R0 = ");
+  Serial.print(ratio);
+  Serial.print(" \n\r");
+
+  delay(2000);
 }
