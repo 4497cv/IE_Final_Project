@@ -31,12 +31,18 @@ def serial_port_readline():
         data = port.readline()
         print(data)
 
+def serial_port_read_temperature():
+    while data != 'exit':
+        port.flush()
+        data = port.readline()
+        print(data)
+
+
 def main():
     serial_port_init()
 
 def serial_temperature_request():
     print("requesting temperature to the atmega..\n\r")
-    
     data = 'REQ_'
 
     #Waiting for request confirmation
@@ -47,7 +53,7 @@ def serial_temperature_request():
         time.sleep(1)
         port.flush()
         data = port.readline()
-        print(data)
+        print(data[12]+data[13]+data[14]+data[15]+data[16] + ' C')
 
     print("Temperature reading request OK\n\r")
 
@@ -57,7 +63,7 @@ def serial_temperature_request():
 def temperature_button_event_handler():
     print("temperature button pressed\n\r")
     serial_temperature_request()
-    serial_port_readline()
+    serial_port_read_temperature()
 
 def humidity_button_event_handler():
     print("humidity button pressed\n\r")
