@@ -18,6 +18,10 @@
 
 #define SERIAL_BAUDRATE 115200
 
+#define REQ_TEMP '1'
+#define REQ_HUM  '2'
+  #define REQ_GAS  '3'
+
 /* Definitions */
 #define xDelay   100
 #define NSAMPLES 50
@@ -57,20 +61,39 @@ void setup()
 /* ~~~~~~~~~~ infinite loop ~~~~~~~~~~  */
 void loop()
 {
-  //LM35DZ_get_samples();
-  //LM35DZ_print_temperature_celsius();
-  //DHT.read11(DHT11_PIN);
-    
-//  float humidity;
-//  
-//  humidity = dht.readHumidity(GPIO_PB1);
-//  Serial.print("Humidity = ");
-//  Serial.print(humidity);
-//  Serial.print(" RH \r\n");
 
-  MQ2_read_sensor();
+}
 
-  //MQ2_read_RO();
+static void THGDS_get_request()
+{
+  char data;
+
+  /* verify is serial port is available */
+  if(Serial.available() > 0)
+  {
+    /* read data from serial port */
+    data = Serial.read();
+
+    if(REQ_TEMP == data)
+    {
+       Serial.write("REQ_TEMP_OK");
+       LM35DZ_print_temperature_celsius();
+    }
+    else if(REQ_HUM == data)
+    {
+       Serial.write("REQ_HUM_OK");
+    }
+    else if(REQ_GAS == data)
+    {
+       Serial.write("REQ_GAS_OK");
+    }
+    else
+    {
+      
+    }
+  }
+  
+  delay(200); 
 }
 
 /* ~~~~~~~~~~ LM35DZ functions ~~~~~~~~~~  */
@@ -153,6 +176,16 @@ static void LM35DZ_print_samples(void)
     Serial.print(temperature_samples[i]);
     Serial.print("\n\r");
   }
+}
+
+static void DHT11_read_values()
+{
+ //  float humidity;
+//  
+//  humidity = dht.readHumidity(GPIO_PB1);
+//  Serial.print("Humidity = ");
+//  Serial.print(humidity);
+//  Serial.print(" RH \r\n"); 
 }
 
 /*  
@@ -257,7 +290,7 @@ static void MQ2_read_sensor(void)
   sensor_volt = (sensorValue/1024)*5.0;
   
   RS_gas = (5.0 - sensor_volt)/sensor_volt;
-  ratio= RS_gas/0.49;
+  ratio= RS_gas/0.44;
   
   Serial.print("sensor_volt: ");
   Serial.print(sensor_volt);
