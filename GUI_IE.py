@@ -1,3 +1,9 @@
+####################################################################################
+#  \file:   GUI_IE.py                                                              #
+#  \brief:  This file contains the graphical user interface for THGDS              #
+#  \author: Cesar Villarreal @4497cv                                               #
+#  \date:   04/12/2019                                                             #
+####################################################################################
 
 import sys
 import time
@@ -12,7 +18,13 @@ try:
 except:
     print("could not import serial module")
 
-#GUI Functions
+#                               GUI Functions
+
+##################################################################################
+#  \brief:      This function intializes the serial port communication           #
+#  \param[in]:                                                                   #
+#  \param[out]:                                                                  #
+##################################################################################
 def serial_port_init():
     serial_port_id = '/dev/ttyUSB0'
     global port 
@@ -25,45 +37,54 @@ def serial_port_init():
         print("serial port "+ serial_port_id + " is not available\n\r")
         print("closing program..\n\r")
 
+##################################################################################
+#  \brief:      This function reads data from the serial port                    #
+#  \param[in]:                                                                   #
+#  \param[out]:                                                                  #
+##################################################################################
 def serial_port_readline(): 
     while 1:
         port.flush()
         data = port.readline()
         print(data)
-
+    
+##################################################################################
+#  \brief: This function reads the current temperature from the serial port      #
+#  \param[in]:                                                                   #
+#  \param[out]:                                                                  #
+##################################################################################
 def serial_port_read_temperature():
     while data != 'exit':
         port.flush()
         data = port.readline()
         print(data)
 
-
 def main():
-    serial_port_init()
+    #serial_port_init()
+    app = THGDS()
+    app.mainloop()
 
 def serial_temperature_request():
     print("requesting temperature to the atmega..\n\r")
     data = 'REQ_'
 
     #Waiting for request confirmation
-    while data != 'REQ_TEMP_OK':
-        port.flush()
-        time.sleep(1)
-        port.write('1')
-        time.sleep(1)
-        port.flush()
-        data = port.readline()
-        print(data[12]+data[13]+data[14]+data[15]+data[16] + ' C')
-
-    print("Temperature reading request OK\n\r")
+    port.flush()
+    time.sleep(1)
+    #send temperature request to the uC
+    port.write('1') 
+    time.sleep(1)
+    port.flush()
+    data = port.readline()
+    print(data[12]+data[13]+data[14]+data[15]+data[16] + ' C')
 
 
 
 ##EVENT HANDLERS       
 def temperature_button_event_handler():
     print("temperature button pressed\n\r")
-    serial_temperature_request()
-    serial_port_read_temperature()
+    #serial_temperature_request()
+    
 
 def humidity_button_event_handler():
     print("humidity button pressed\n\r")
@@ -71,12 +92,17 @@ def humidity_button_event_handler():
 def gas_button_event_handler():
     print("gas button pressed\n\r")
 
-class THDS(tk.Tk):
+class THGDS(tk.Tk):
     def __init__(self, *args, **kwargs):
         tk.Tk.__init__(self, *args, **kwargs)
-        self.wm_title("THDS")
+
+        container = tk.Frame(self)
+        container.pack(side="top",fill="both",expand=True)
+        container.grid_rowconfigure(0,weight=1)
+        container.grid_columnconfigure(0,weight=1)
+
+        self.wm_title("THGDS")
         self.geometry('350x280')
-        self.configure(background='white')
 
         selfWidth = self.winfo_reqwidth() 	#get self width
         selfHeight = self.winfo_reqheight()	#get self height
@@ -87,6 +113,27 @@ class THDS(tk.Tk):
         self.geometry("+{}+{}".format(positionX, positionY))
         self.resizable(False, False)
 
+        self.frames = {}
+
+        for F in(StartPage, TemperaturePage, HumidityPage, GasPage):
+            frame = F(container, self)
+            self.frames[F] = frame
+            frame.grid(row=0, column=0, sticky="nsew")
+        
+        self.show_frame(StartPage)
+        #self.mainloop() 
+
+    def show_frame(self, cont):
+        frame = self.frames[cont]
+        frame.tkraise()
+
+
+class StartPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+        
+        self.configure(background='white')
+
         lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
         lbl_empty.grid(column = 3, row = 0)
         lbl_title = tk.Label(self, text = "   Temperature, Humidity, and Gas Detection System   ", bg="white", font="Times")
@@ -95,49 +142,74 @@ class THDS(tk.Tk):
         lbl_empty = tk.Label(self, text = "		", bg="white", width = 17, height=2)
         lbl_empty.grid(column = 3, row = 2)
     
-        btn1 = tk.Button(self, text = "Temperature Sensor", width = 17, height=1, font="Times",borderwidth=3, command=temperature_button_event_handler)
+        btn1 = tk.Button(self, text = "Temperature Sensor", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(TemperaturePage))
         btn1.grid(column = 3, row = 5)
         lbl_empty = tk.Label(self, text = "		", bg="white")
         lbl_empty.grid(column = 3, row = 6)
-        btn2 = tk.Button(self, text = "Humidity Sensor", width = 17, height=1, font="Times",borderwidth=3, command=humidity_button_event_handler)
+        btn2 = tk.Button(self, text = "Humidity Sensor", width = 17, height=1, font="Times",borderwidth=3,  command=lambda: controller.show_frame(HumidityPage))
         btn2.grid(column = 3, row = 7)
         lbl_empty = tk.Label(self, text = "		", bg="white")
         lbl_empty.grid(column = 3, row = 8)
-        btn2 = tk.Button(self, text = "Gas Sensor", width = 17, height=1, font="Times",borderwidth=3, command=gas_button_event_handler)
+        btn2 = tk.Button(self, text = "Gas Sensor", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(GasPage))
         btn2.grid(column = 3, row = 9)
-        self.mainloop()
-        
-    def _quit(self):
-        self.quit()
-        self.destroy()        
 
-class StartPage(tk.Frame):
+
+class TemperaturePage(tk.Frame):
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
-     
 
-#main()
-#GUI_main_menu()
+        self.configure(background='white')
+    
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+        #lbl_empty.grid(column = 3, row = 0)
+        lbl_title = tk.Label(self, text = " Current temp = ", bg="white", font="Times")
+        lbl_title.pack(pady=10,padx=10)
+        #lbl_title.grid(column = 3, row = 1)
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+        #lbl_empty.grid(column = 3, row = 2)
 
+        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
+        btn1.pack(pady=10,padx=10)
 
-    # menu = Menu(root)
-    # root.config(menu=menu)
-    # filemenu = Menu(menu)
-    # scrollbar = Scrollbar(root)
-    # scrollbar.pack(side=RIGHT, fill=Y)
-    # mylist = Listbox(root, yscrollcommand = scrollbar.set)
+class HumidityPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
 
-    # port.flush()
+        self.configure(background='white')
+    
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+        #lbl_empty.grid(column = 3, row = 0)
+        lbl_title = tk.Label(self, text = " Current Relative Humidty = ", bg="white", font="Times")
+        lbl_title.pack(pady=10,padx=10)
+        #lbl_title.grid(column = 3, row = 1)
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+        #lbl_empty.grid(column = 3, row = 2)
 
-    # port.flush()
-    # data = str(port.readline())
-    # mylist.insert(END, data)
+        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
+        btn1.pack(pady=10,padx=10)
 
-    # port.flush()
-    # data = str(port.readline())
-    # mylist.insert(END, data)
+class GasPage(tk.Frame):
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
 
-    # mylist.pack(side=LEFT, fill=BOTH)
-    # scrollbar.config(command =mylist.yview)
-    # mainloop() # open window   
+        self.configure(background='white')
+    
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+        #lbl_empty.grid(column = 3, row = 0)
+        lbl_title = tk.Label(self, text = " page pending ", bg="white", font="Times")
+        lbl_title.pack(pady=10,padx=10)
+        #lbl_title.grid(column = 3, row = 1)
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+        #lbl_empty.grid(column = 3, row = 2)
+
+        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
+        btn1.pack(pady=10,padx=10)
+
+       
 main()
