@@ -1,6 +1,8 @@
+#include <Arduino_FreeRTOS.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
 #include <DHT_U.h>
+#include <semphr.h>
 
 /*
     \file:   final_project.ino
@@ -20,7 +22,7 @@
 
 #define REQ_TEMP '1'
 #define REQ_HUM  '2'
-  #define REQ_GAS  '3'
+#define REQ_GAS  '3'
 
 /* Definitions */
 #define xDelay   100
@@ -39,6 +41,12 @@ static void LM35DZ_print_temperature_celsius(void);
 static void LM35DZ_get_samples(void);
 static void LM35DZ_print_samples(void);
 static void LM35DZ_calculate_standard_deviation(void);
+/* ~~~~~~~~~~ system tasks ~~~~~~~~~~  */
+void temperature_task(void *pvParameters);
+void serial_task(void *pvParameters);
+
+SemaphoreHandle_t xSerialSemaphore; //mutex for serial communication
+SemaphoreHandle_t xTempSemaphore;   //semaphore for temperature reading
 
 static DHT dht(DHT_IO_PIN, DHT11);
 
@@ -53,48 +61,87 @@ void setup()
   /* start serial communication (uart) @ 115200 baud/s */
   Serial.begin(SERIAL_BAUDRATE);
 
-  //MQ2_warmup_sensor();
-  
   samples_counter = 0;
+
+  /* create mutex semaphore for serial communication */
+  xSerialSemaphore = xSemaphoreCreateMutex();
+   /* create binary semaphore for tempeature reading */
+  xTempSemaphore = xSemaphoreCreateBinary(); 
+
+  /* create tasks fcr serial communication, temperature, humidity, and gas */
+  xTaskCreate(temperature_task, "temp_task", 128, NULL, 2, NULL);
+  xTaskCreate(serial_task, "temp_task", 128, NULL, 2, NULL);
 }
 
 /* ~~~~~~~~~~ infinite loop ~~~~~~~~~~  */
 void loop()
 {
-
+  
 }
 
-static void THGDS_get_request()
+void serial_task(void *pvParameters)
 {
   char data;
 
-  /* verify is serial port is available */
-  if(Serial.available() > 0)
+  for(;;)
   {
-    /* read data from serial port */
-    data = Serial.read();
-
-    if(REQ_TEMP == data)
+    /* verify is serial port is available */
+    if(Serial.available() > 0)
     {
-       Serial.write("REQ_TEMP_OK");
-       LM35DZ_print_temperature_celsius();
-    }
-    else if(REQ_HUM == data)
-    {
-       Serial.write("REQ_HUM_OK");
-    }
-    else if(REQ_GAS == data)
-    {
-       Serial.write("REQ_GAS_OK");
-    }
-    else
-    {
-      
-    }
+      /* ensure atomicity while reading from the serial port */
+      xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
+      /* read data from serial port */
+      data = Serial.read();
+      /* release mutex */
+      xSemaphoreGive(xSerialSemaphore);
+  
+      if(REQ_TEMP == data)
+      {
+         /* read data from serial port */
+         xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
+         Serial.write("REQ_TEMP_ACK");
+         xSemaphoreGive(xSerialSemaphore);+
+         /* read temperature */
+         xSemaphoreGive(xTempSemaphore);
+      }
+      else if(REQ_HUM == data)
+      {
+         Serial.write("REQ_HUM_ACK");
+      }
+      else if(REQ_GAS == data)
+      {
+         Serial.write("REQ_GAS_ACK");
+      }
+      else if("exit" == data)
+      {
+        
+      }
+     }
   }
   
   delay(200); 
 }
+
+
+
+void temperature_task(void *pvParameters)
+{
+   float celcius_temp;
+   
+   for(;;)
+   {
+    /* wait until the temperature semaphore is released */
+    xSemaphoreTake(xTempSemaphore, portMAX_DELAY);
+    /* read temperature value from sensor */
+    celcius_temp = LM35DZ_get_temperature_celsius();
+    
+    xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
+    Serial.print(LM35DZ_get_temperature_celsius());
+    Serial.print("\n\r");
+    xSemaphoreGive(xSerialSemaphore);
+   }
+}
+
 
 /* ~~~~~~~~~~ LM35DZ functions ~~~~~~~~~~  */
 
