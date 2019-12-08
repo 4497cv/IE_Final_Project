@@ -20,6 +20,13 @@ try:
 except:
     print("could not import serial module")
 
+import matplotlib
+matplotlib.use("TkAgg")
+from matplotlib.backends.backend_tkagg import(FigureCanvasTkAgg, NavigationToolbar2TkAgg)
+from matplotlib.backend_bases import key_press_handler
+from matplotlib.figure import Figure
+import numpy as np
+
 #                               GUI Functions
 
 ##################################################################################
@@ -161,9 +168,8 @@ class StartPage(tk.Frame):
 
         lbl_empty = tk.Label(self, text = "		", bg="white")
         lbl_empty.grid(column = 3, row = 10)
-        btn3 = tk.Button(self, text = "connect to device ", width = 17, height=1, font="Times",borderwidth=3, command=serial_port_init)
+        btn3 = tk.Button(self, text = "Connect to Device ", width = 17, height=1, font="Times",borderwidth=3, command=serial_port_init)
         btn3.grid(column = 3, row = 11)
-
 
 class SerialConnectionPage(tk.Frame):
 
@@ -177,7 +183,6 @@ class SerialConnectionPage(tk.Frame):
 
         btn1 = tk.Button(self, text = "connect to device ", width = 17, height=1, font="Times",borderwidth=3, command=serial_port_init)
         btn1.pack(pady=10,padx=10)
-
 
 class TemperaturePage(tk.Frame):
     def __init__(self, parent, controller):
@@ -197,6 +202,21 @@ class TemperaturePage(tk.Frame):
 
         btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
+
+        fig = Figure(figsize=(5,4), dpi=100)
+        t = np.arange(0,3,.01)
+        fig.add_subplot(111).plot(t, 2*np.sin(2*np.pi*t))
+
+        canvas = FigureCanvasTkAgg(fig, master=self)
+        canvas.draw()
+        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+        toolbar=NavigationToolbar2TkAgg(canvas,self)
+        toolbar.update()
+        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+
+
+
 
 class HumidityPage(tk.Frame):
     def __init__(self, parent, controller):
