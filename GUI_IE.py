@@ -74,11 +74,6 @@ def serial_port_read_temperature():
         data = port.readline()
         print(data)
 
-def main():
-    #serial_port_init()
-    app = THGDS()
-    app.mainloop()
-
 def serial_temperature_request():
     print("requesting temperature to the atmega..\n\r")
     data = 'REQ_'
@@ -190,33 +185,24 @@ class TemperaturePage(tk.Frame):
 
         self.configure(background='white')
     
-        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
-        lbl_empty.pack(pady=10,padx=10)
         #lbl_empty.grid(column = 3, row = 0)
-        lbl_title = tk.Label(self, text = " Current temp = ", bg="white", font="Times")
+        lbl_title = tk.Label(self, text = " temp = ", bg="white", font="Times")
         lbl_title.pack(pady=10,padx=10)
-        #lbl_title.grid(column = 3, row = 1)
-        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
-        lbl_empty.pack(pady=10,padx=10)
-        #lbl_empty.grid(column = 3, row = 2)
 
-        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
-        btn1.pack(pady=10,padx=10)
-
-        fig = Figure(figsize=(5,4), dpi=100)
+        fig = Figure(figsize=(5,4), dpi=60)
         t = np.arange(0,3,.01)
         fig.add_subplot(111).plot(t, 2*np.sin(2*np.pi*t))
 
         canvas = FigureCanvasTkAgg(fig, master=self)
         canvas.draw()
-        canvas.get_tk_widget().pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        canvas.get_tk_widget().pack(pady=10,padx=10)
 
         toolbar=NavigationToolbar2TkAgg(canvas,self)
         toolbar.update()
-        canvas._tkcanvas.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
+        canvas._tkcanvas.pack(pady=10,padx=10)
 
-
-
+        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
+        btn1.pack(pady=10,padx=10)
 
 class HumidityPage(tk.Frame):
     def __init__(self, parent, controller):
@@ -234,7 +220,7 @@ class HumidityPage(tk.Frame):
         lbl_empty.pack(pady=10,padx=10)
         #lbl_empty.grid(column = 3, row = 2)
 
-        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Timesffff",borderwidth=3, command=lambda: controller.show_frame(StartPage))
+        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
 
 class GasPage(tk.Frame):
@@ -256,5 +242,10 @@ class GasPage(tk.Frame):
         btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
 
+
+def main():
+    #serial_port_init()
+    app = THGDS()
+    app.mainloop()
        
 main()
