@@ -10,8 +10,10 @@ import time
 
 try:
     import Tkinter as tk
+    from Tkinter import Menu
 except:
     import tkinter as tk 
+    from tkinter import Menu
 
 try:
     from serial import Serial
@@ -33,9 +35,15 @@ def serial_port_init():
         port = Serial(serial_port_id, 115200, timeout=0)
         print("conncted to " + serial_port_id + "\n\r")
         app = THDS();
+        ver = True
     except:
         print("serial port "+ serial_port_id + " is not available\n\r")
         print("closing program..\n\r")
+        ver = False
+    
+    return ver
+
+
 
 ##################################################################################
 #  \brief:      This function reads data from the serial port                    #
@@ -85,7 +93,6 @@ def temperature_button_event_handler():
     print("temperature button pressed\n\r")
     #serial_temperature_request()
     
-
 def humidity_button_event_handler():
     print("humidity button pressed\n\r")
 
@@ -102,7 +109,7 @@ class THGDS(tk.Tk):
         container.grid_columnconfigure(0,weight=1)
 
         self.wm_title("THGDS")
-        self.geometry('350x280')
+        self.geometry('350x400')
 
         selfWidth = self.winfo_reqwidth() 	#get self width
         selfHeight = self.winfo_reqheight()	#get self height
@@ -115,7 +122,7 @@ class THGDS(tk.Tk):
 
         self.frames = {}
 
-        for F in(StartPage, TemperaturePage, HumidityPage, GasPage):
+        for F in(SerialConnectionPage, StartPage, TemperaturePage, HumidityPage, GasPage):
             frame = F(container, self)
             self.frames[F] = frame
             frame.grid(row=0, column=0, sticky="nsew")
@@ -126,7 +133,6 @@ class THGDS(tk.Tk):
     def show_frame(self, cont):
         frame = self.frames[cont]
         frame.tkraise()
-
 
 class StartPage(tk.Frame):
     def __init__(self, parent, controller):
@@ -152,6 +158,25 @@ class StartPage(tk.Frame):
         lbl_empty.grid(column = 3, row = 8)
         btn2 = tk.Button(self, text = "Gas Sensor", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(GasPage))
         btn2.grid(column = 3, row = 9)
+
+        lbl_empty = tk.Label(self, text = "		", bg="white")
+        lbl_empty.grid(column = 3, row = 10)
+        btn3 = tk.Button(self, text = "connect to device ", width = 17, height=1, font="Times",borderwidth=3, command=serial_port_init)
+        btn3.grid(column = 3, row = 11)
+
+
+class SerialConnectionPage(tk.Frame):
+
+    def __init__(self, parent, controller):
+        tk.Frame.__init__(self, parent)
+
+        self.configure(background='white')
+    
+        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
+        lbl_empty.pack(pady=10,padx=10)
+
+        btn1 = tk.Button(self, text = "connect to device ", width = 17, height=1, font="Times",borderwidth=3, command=serial_port_init)
+        btn1.pack(pady=10,padx=10)
 
 
 class TemperaturePage(tk.Frame):
@@ -189,7 +214,7 @@ class HumidityPage(tk.Frame):
         lbl_empty.pack(pady=10,padx=10)
         #lbl_empty.grid(column = 3, row = 2)
 
-        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
+        btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Timesffff",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
 
 class GasPage(tk.Frame):
