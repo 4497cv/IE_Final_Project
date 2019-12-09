@@ -36,6 +36,12 @@ t = np.arange(0,3,.01)
 ax1= temp_fig.add_subplot(111)
 temp_count = 0
 
+hum_fig = Figure(figsize=(5,4), dpi=60)
+t = np.arange(0,3,.01)
+ax2= temp_fig.add_subplot(111)
+hum_count = 0
+
+
 #                               GUI Functions
 
 ##################################################################################
@@ -107,21 +113,30 @@ def serial_temperature_request():
     f.write('\n')
 
 def serial_humidity_request():
-    global temp_count
-    f = open('hum_data.txt', 'a+')
-    print("requesting humidity to the atmega..\n\r")
-    data = 'REQ_'
-    #Waiting for request confirmation
-    port.flush()
-    time.sleep(1)
-    #send temperature request to the uC
-    port.write('2') 
-    time.sleep(1)
-    port.flush()
-    data = port.readline()
-    print(data)
+    global hum_count
+    # f = open('hum_data.txt', 'a+')
+    # print("requesting humidity to the atmega..\n\r")
+    # data = 'REQ_'
+    # #Waiting for request confirmation
+    # port.flush()
+    # time.sleep(1)
+    # #send temperature request to the uC
+    # port.write('2') 
+    # time.sleep(1)
+    # port.flush()
+    # data = port.readline()
+    # print(data)
+    
+    # hum_count = hum_count+1
+
+    # f.write(str(hum_count))
+    # f.write(',')
+    # f.write(data[12]+data[13]+data[14]+data[15])
+    # f.write('\n')
+
 
 def animate_temp(i):
+    global hum_count
     serial_temperature_request()
     graph_data = open('temp_data.txt', 'r').read()
     lines = graph_data.split('\n')
@@ -138,6 +153,24 @@ def animate_temp(i):
     ax1.set_ylabel('Temperature (C)', fontsize=12)
     ax1.set(xlim=(1,temp_count), ylim=(0,float(y)+10))
     print('refreshing graph...\r\n')
+
+def animate_hum(i):
+    serial_humidity_request()
+    # graph_data = open('temp_data.txt', 'r').read()
+    # lines = graph_data.split('\n')
+    # xs = []
+    # ys = []
+    # for line in lines:
+    #     if len(line) > 1:
+    #         x,y = line.split(',')
+    #         xs.append(float(x))
+    #         ys.append(float(y))
+    # ax2.clear()
+    # ax2.plot(xs,ys,'r')
+    # ax2.set_xlabel('Seconds', fontsize=12)
+    # ax2.set_ylabel('Relative Humidity (RH)', fontsize=12)
+    # ax2.set(xlim=(1,hum_count), ylim=(0,float(y)+10))
+    # print('refreshing graph...\r\n')
 
 class THGDS(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -240,16 +273,20 @@ class HumidityPage(tk.Frame):
 
         self.configure(background='white')
     
-        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
-        lbl_empty.pack(pady=10,padx=10)
         #lbl_empty.grid(column = 3, row = 0)
-        lbl_title = tk.Label(self, text = " Current Relative Humidty = ", bg="white", font="Times")
+        lbl_title = tk.Label(self, text = "Relative Humidity", bg="white", font="Times")
         lbl_title.pack(pady=10,padx=10)
-        #lbl_title.grid(column = 3, row = 1)
-        lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
-        lbl_empty.pack(pady=10,padx=10)
-        #lbl_empty.grid(column = 3, row = 2)
 
+        canvas = FigureCanvasTkAgg(hum_fig, master=self)
+        canvas.draw()
+        canvas.get_tk_widget().pack(pady=10,padx=10)
+
+        toolbar=NavigationToolbar2TkAgg(canvas,self)
+        toolbar.update()
+        canvas._tkcanvas.pack(pady=10,padx=10)
+
+        ani = animation.FuncAnimation(hum_fig, animate_hum, interval=10000)
+        canvas.draw()
         btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
 
