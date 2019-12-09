@@ -26,6 +26,15 @@ from matplotlib.backends.backend_tkagg import(FigureCanvasTkAgg, NavigationToolb
 from matplotlib.backend_bases import key_press_handler
 from matplotlib.figure import Figure
 import numpy as np
+import matplotlib.animation as animation
+from matplotlib import style
+import matplotlib.pyplot as plt
+
+
+temp_fig = Figure(figsize=(5,4), dpi=60)
+t = np.arange(0,3,.01)
+ax1= temp_fig.add_subplot(111)
+temp_count = 0
 
 #                               GUI Functions
 
@@ -35,22 +44,28 @@ import numpy as np
 #  \param[out]:                                                                  #
 ##################################################################################
 def serial_port_init():
-    serial_port_id = '/dev/ttyUSB0'
-    global port 
-
+    serial_port_id = ['/dev/ttyUSB0','/dev/ttyUSB1']
+    global port
     try:
-        port = Serial(serial_port_id, 115200, timeout=0)
-        print("conncted to " + serial_port_id + "\n\r")
-        app = THDS();
-        ver = True
+        port = Serial(serial_port_id[0], 115200, timeout=0)
+        print("conncted to " + serial_port_id[0] + "\n\r")
     except:
-        print("serial port "+ serial_port_id + " is not available\n\r")
-        print("closing program..\n\r")
-        ver = False
-    
-    return ver
+        print("serial port "+ serial_port_id[0] + " is not available\n\r")
+        try:
+            port = Serial(serial_port_id[1], 115200, timeout=0)
+            print("conncted to " + serial_port_id[1] + "\n\r")
+        except:
+            print("serial port "+ serial_port_id[1] + " is not available\n\r")
+            print("closing program..\n\r")
+            sys.exit()
+        
 
-
+def strisfloat(s):
+    try:
+        float(s)
+        return True
+    except:
+        return False
 
 ##################################################################################
 #  \brief:      This function reads data from the serial port                    #
@@ -75,9 +90,10 @@ def serial_port_read_temperature():
         print(data)
 
 def serial_temperature_request():
+    global temp_count
+    f = open('temp_data.txt', 'a+')
     print("requesting temperature to the atmega..\n\r")
     data = 'REQ_'
-
     #Waiting for request confirmation
     port.flush()
     time.sleep(1)
@@ -86,20 +102,29 @@ def serial_temperature_request():
     time.sleep(1)
     port.flush()
     data = port.readline()
-    print(data[12]+data[13]+data[14]+data[15]+data[16] + ' C')
+    print(data)
 
+    temp_count = temp_count+1
+    if(temp_count > 3):
+        f.write(str(temp_count-3))
+        f.write(',')
+        f.write(data[12]+data[13]+data[14]+data[15])
+        f.write('\n')
 
-
-##EVENT HANDLERS       
-def temperature_button_event_handler():
-    print("temperature button pressed\n\r")
-    #serial_temperature_request()
-    
-def humidity_button_event_handler():
-    print("humidity button pressed\n\r")
-
-def gas_button_event_handler():
-    print("gas button pressed\n\r")
+def animate(i):
+    serial_temperature_request()
+    graph_data = open('temp_data.txt', 'r').read()
+    lines = graph_data.split('\n')
+    xs = []
+    ys = []
+    for line in lines:
+        if len(line) > 1:
+            x,y = line.split(',')
+            xs.append(float(x))
+            ys.append(float(y))
+    ax1.clear()
+    ax1.plot(xs,ys)
+    print('refreshing graph...\r\n')
 
 class THGDS(tk.Tk):
     def __init__(self, *args, **kwargs):
@@ -144,7 +169,7 @@ class StartPage(tk.Frame):
 
         lbl_empty = tk.Label(self, text = "        ", bg="white", width = 17, height=2)
         lbl_empty.grid(column = 3, row = 0)
-        lbl_title = tk.Label(self, text = "   Temperature, Humidity, and Gas Detection System   ", bg="white", font="Times")
+        lbl_title = tk.Label(self, text = "   Temperature, Humidity, and Gas Detection System", bg="white", font="Times")
         lbl_title.grid(column = 3, row = 1)
         
         lbl_empty = tk.Label(self, text = "		", bg="white", width = 17, height=2)
@@ -161,13 +186,7 @@ class StartPage(tk.Frame):
         btn2 = tk.Button(self, text = "Gas Sensor", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(GasPage))
         btn2.grid(column = 3, row = 9)
 
-        lbl_empty = tk.Label(self, text = "		", bg="white")
-        lbl_empty.grid(column = 3, row = 10)
-        btn3 = tk.Button(self, text = "Connect to Device ", width = 17, height=1, font="Times",borderwidth=3, command=serial_port_init)
-        btn3.grid(column = 3, row = 11)
-
 class SerialConnectionPage(tk.Frame):
-
     def __init__(self, parent, controller):
         tk.Frame.__init__(self, parent)
 
@@ -189,11 +208,7 @@ class TemperaturePage(tk.Frame):
         lbl_title = tk.Label(self, text = " temp = ", bg="white", font="Times")
         lbl_title.pack(pady=10,padx=10)
 
-        fig = Figure(figsize=(5,4), dpi=60)
-        t = np.arange(0,3,.01)
-        fig.add_subplot(111).plot(t, 2*np.sin(2*np.pi*t))
-
-        canvas = FigureCanvasTkAgg(fig, master=self)
+        canvas = FigureCanvasTkAgg(temp_fig, master=self)
         canvas.draw()
         canvas.get_tk_widget().pack(pady=10,padx=10)
 
@@ -201,6 +216,8 @@ class TemperaturePage(tk.Frame):
         toolbar.update()
         canvas._tkcanvas.pack(pady=10,padx=10)
 
+        ani = animation.FuncAnimation(temp_fig, animate, interval=1000)
+        canvas.draw()
         btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
 
@@ -244,8 +261,10 @@ class GasPage(tk.Frame):
 
 
 def main():
-    #serial_port_init()
+    serial_port_init()
+    f = open('temp_data.txt', 'w+')
+    f.close()
     app = THGDS()
     app.mainloop()
-       
+
 main()
