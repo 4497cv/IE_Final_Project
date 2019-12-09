@@ -83,11 +83,6 @@ def serial_port_readline():
 #  \param[in]:                                                                   #
 #  \param[out]:                                                                  #
 ##################################################################################
-def serial_port_read_temperature():
-    while data != 'exit':
-        port.flush()
-        data = port.readline()
-        print(data)
 
 def serial_temperature_request():
     global temp_count
@@ -105,13 +100,28 @@ def serial_temperature_request():
     print(data)
 
     temp_count = temp_count+1
-    if(temp_count > 3):
-        f.write(str(temp_count-3))
-        f.write(',')
-        f.write(data[12]+data[13]+data[14]+data[15])
-        f.write('\n')
 
-def animate(i):
+    f.write(str(temp_count))
+    f.write(',')
+    f.write(data[12]+data[13]+data[14]+data[15])
+    f.write('\n')
+
+def serial_humidity_request():
+    global temp_count
+    f = open('hum_data.txt', 'a+')
+    print("requesting humidity to the atmega..\n\r")
+    data = 'REQ_'
+    #Waiting for request confirmation
+    port.flush()
+    time.sleep(1)
+    #send temperature request to the uC
+    port.write('2') 
+    time.sleep(1)
+    port.flush()
+    data = port.readline()
+    print(data)
+
+def animate_temp(i):
     serial_temperature_request()
     graph_data = open('temp_data.txt', 'r').read()
     lines = graph_data.split('\n')
@@ -123,7 +133,10 @@ def animate(i):
             xs.append(float(x))
             ys.append(float(y))
     ax1.clear()
-    ax1.plot(xs,ys)
+    ax1.plot(xs,ys,'r')
+    ax1.set_xlabel('Seconds', fontsize=12)
+    ax1.set_ylabel('Temperature (C)', fontsize=12)
+    ax1.set(xlim=(1,temp_count), ylim=(0,float(y)+10))
     print('refreshing graph...\r\n')
 
 class THGDS(tk.Tk):
@@ -172,7 +185,7 @@ class StartPage(tk.Frame):
         lbl_title = tk.Label(self, text = "   Temperature, Humidity, and Gas Detection System", bg="white", font="Times")
         lbl_title.grid(column = 3, row = 1)
         
-        lbl_empty = tk.Label(self, text = "		", bg="white", width = 17, height=2)
+        lbl_empty = tk.Label(self, text = "		", bg="white", width = 17, height=5)
         lbl_empty.grid(column = 3, row = 2)
     
         btn1 = tk.Button(self, text = "Temperature Sensor", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(TemperaturePage))
@@ -205,7 +218,7 @@ class TemperaturePage(tk.Frame):
         self.configure(background='white')
     
         #lbl_empty.grid(column = 3, row = 0)
-        lbl_title = tk.Label(self, text = " temp = ", bg="white", font="Times")
+        lbl_title = tk.Label(self, text = "Temperature", bg="white", font="Times")
         lbl_title.pack(pady=10,padx=10)
 
         canvas = FigureCanvasTkAgg(temp_fig, master=self)
@@ -216,7 +229,7 @@ class TemperaturePage(tk.Frame):
         toolbar.update()
         canvas._tkcanvas.pack(pady=10,padx=10)
 
-        ani = animation.FuncAnimation(temp_fig, animate, interval=1000)
+        ani = animation.FuncAnimation(temp_fig, animate_temp, interval=1000)
         canvas.draw()
         btn1 = tk.Button(self, text = "return home", width = 17, height=1, font="Times",borderwidth=3, command=lambda: controller.show_frame(StartPage))
         btn1.pack(pady=10,padx=10)
@@ -261,9 +274,13 @@ class GasPage(tk.Frame):
 
 
 def main():
+    f1 = open('temp_data.txt', 'w+')
+    f1.close()
+    f2 = open('hum_data.txt', 'w+')
+    f2.close()
+    f3 = open('gas_data.txt', 'w+')
+    f3.close()
     serial_port_init()
-    f = open('temp_data.txt', 'w+')
-    f.close()
     app = THGDS()
     app.mainloop()
 
