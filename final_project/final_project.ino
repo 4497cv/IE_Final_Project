@@ -12,23 +12,23 @@
 */
 
 /* Digital Ports */
-#define MQ2_IO_PIN 10        /*     SS/OC1B      */
-#define DHT11_IO_PIN 9
+#define MQ2_IO_PIN      10        /*     SS/OC1B      */
+#define DHT11_IO_PIN    9
 /* Analog Ports */
-#define LM35DZ_ADC_PIN A2
-#define MQ2_ADC_PIN    A0
+#define LM35DZ_ADC_PIN  A2
+#define MQ2_ADC_PIN     A0
 
 #define SERIAL_BAUDRATE 115200
 
-#define REQ_TEMP '1'
-#define REQ_HUM  '2'
-#define REQ_GAS  '3'
+#define REQ_TEMP        '1'
+#define REQ_HUM         '2'
+#define REQ_GAS         '3'
 
 /* Definitions */
-#define xDelay   100
-#define NSAMPLES 50
+#define xDelay          100
+#define NSAMPLES        20
 
-#define NSTATES 3
+#define NSTATES         3
 //#define DEBUG 
 
 static float temperature_samples[NSAMPLES];
@@ -41,6 +41,7 @@ static void LM35DZ_print_temperature_celsius(void);
 static void LM35DZ_get_samples(void);
 static void LM35DZ_print_samples(void);
 static void LM35DZ_calculate_standard_deviation(void);
+
 /* ~~~~~~~~~~ system tasks ~~~~~~~~~~  */
 void LM35DZ_task(void *pvParameters);
 void DHT11_task(void *pvParameters);
@@ -86,7 +87,6 @@ void setup()
 /* ~~~~~~~~~~ infinite loop ~~~~~~~~~~  */
 void loop()
 {
-  
 }
 
 void serial_task(void *pvParameters)
@@ -110,7 +110,7 @@ void serial_task(void *pvParameters)
          /* read data from serial port */
          xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
          Serial.write("REQ_TEMP_ACK");
-         xSemaphoreGive(xSerialSemaphore);+
+         xSemaphoreGive(xSerialSemaphore);
          /* read temperature */
          xSemaphoreGive(xLM35DZSemaphore);
       }
@@ -142,18 +142,14 @@ void serial_task(void *pvParameters)
 
 void LM35DZ_task(void *pvParameters)
 {
-   float celcius_temp;
-   
    for(;;)
    {
     /* wait until the temperature semaphore is released */
     xSemaphoreTake(xLM35DZSemaphore, portMAX_DELAY);
-    /* read temperature value from sensor */
-    celcius_temp = LM35DZ_get_temperature_celsius();
+    LM35DZ_get_samples();
     /* send data to GUI*/
     xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
-    Serial.print(LM35DZ_get_temperature_celsius());
-    Serial.print("\n\r");
+    Serial.print(g_current_temp);
     xSemaphoreGive(xSerialSemaphore);
    }
 }
@@ -164,6 +160,7 @@ void DHT11_task(void *pvParameters)
    
    for(;;)
    {
+    /* wait until the humidity semaphore is released */
     xSemaphoreTake(xDHT11Semaphore, portMAX_DELAY);
     
     xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
@@ -179,9 +176,16 @@ void MQ2_task(void *pvParameters)
 
   for(;;)
   {
-    
+    /* wait until the humidity semaphore is released */
+    xSemaphoreTake(xMQ2Semaphore, portMAX_DELAY);
+//
+//    xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
+//
+//
+//    xSemaphoreGive(xSerialSemaphore);
   }  
 }
+
 /* ~~~~~~~~~~ LM35DZ functions ~~~~~~~~~~  */
 
 /*  
@@ -191,16 +195,16 @@ void MQ2_task(void *pvParameters)
 */  
 static float LM35DZ_get_temperature_celsius(void)
 {
+  volatile float data;
   float celcius_temp;
-  float data;
-  float vout;
+  float v_out;
   //delay(500);
   /* read analog data from temperature sensor */
   data = analogRead(LM35DZ_ADC_PIN);
   /* The analog values read from the Arduino may have a value between 0 and 1024, 
    *  in which 0 corresponds to 0V and 1024 to 5V. So, we can easily get the output voltage of the sensor in mV */
-  vout = (data*5000)/1024;
-  celcius_temp = vout/10; /* 10 mv division*/
+  v_out = (data*5000)/1024;
+  celcius_temp = v_out/10; /* 10 mv division*/
   return celcius_temp;
 }
 
@@ -225,25 +229,26 @@ static void LM35DZ_print_temperature_celsius(void)
 */  
 static void LM35DZ_get_samples(void)
 {
-  if(NSAMPLES == samples_counter)
+  int s_count;
+  int s_flag = 0;
+  
+  s_count = 0;
+  
+  do
   {
-    //LM35DZ_print_samples();
-    LM35DZ_calculate_standard_deviation();
-    Serial.print(g_current_temp);
-    Serial.print(" C");
-    Serial.print("\n\r");
-    samples_counter = 0;
-  }
-  else if(NSAMPLES > samples_counter)
-  {
-    /* CAPTURE TEMPERATURE VALUE */
-    temperature_samples[samples_counter] = LM35DZ_get_temperature_celsius();
-    samples_counter++;
-  }
-  else
-  {
-    samples_counter = 0;
-  }
+    if(NSAMPLES == s_count)
+    {
+      //LM35DZ_print_samples();
+      LM35DZ_calculate_standard_deviation();
+      s_flag = 1;
+    }
+    else if(NSAMPLES > s_count)
+    {
+      /* CAPTURE TEMPERATURE VALUE */
+      temperature_samples[s_count] = LM35DZ_get_temperature_celsius();
+      s_count++;
+    }
+  }while(s_flag == 0);
 }
 
 /*  
@@ -297,16 +302,8 @@ static void LM35DZ_calculate_standard_deviation(void)
   for(i=0; i < NSAMPLES; i++) sigma_sqrrt_val_av += sqrt(abs((temperature_samples[i] - total_average)));
   
   std_dev = sqrt(sigma_sqrrt_val_av/(NSAMPLES-1));
-
-  #ifdef DEBUG
-    Serial.print("the total variance is: ");
-    Serial.print(variance);
-    Serial.print("| Number of samples: ");
-    Serial.print(NSAMPLES);
-    Serial.print("\n\r");
-  #endif
-
-  if(std_dev < 0.8)
+  
+  if(std_dev < 1)
   {
      g_current_temp = total_average;
   }
