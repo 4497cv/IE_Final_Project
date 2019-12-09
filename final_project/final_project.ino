@@ -13,7 +13,7 @@
 
 /* Digital Ports */
 #define MQ2_IO_PIN 10        /*     SS/OC1B      */
-#define DHT_IO_PIN 9
+#define DHT11_IO_PIN 9
 /* Analog Ports */
 #define LM35DZ_ADC_PIN A2
 #define MQ2_ADC_PIN    A0
@@ -42,13 +42,17 @@ static void LM35DZ_get_samples(void);
 static void LM35DZ_print_samples(void);
 static void LM35DZ_calculate_standard_deviation(void);
 /* ~~~~~~~~~~ system tasks ~~~~~~~~~~  */
-void temperature_task(void *pvParameters);
+void LM35DZ_task(void *pvParameters);
+void DHT11_task(void *pvParameters);
+void MQ2_task(void *pvParameters);
 void serial_task(void *pvParameters);
 
 SemaphoreHandle_t xSerialSemaphore; //mutex for serial communication
-SemaphoreHandle_t xTempSemaphore;   //semaphore for temperature reading
+SemaphoreHandle_t xLM35DZSemaphore;   //semaphore for temperature reading
+SemaphoreHandle_t xDHT11Semaphore;
+SemaphoreHandle_t xMQ2Semaphore;
 
-static DHT dht(DHT_IO_PIN, DHT11);
+static DHT dht(DHT11_IO_PIN, DHT11);
 
 /* ~~~~~~~~~~ system setup (config) ~~~~~~~~~~  */
 void setup()
@@ -65,12 +69,18 @@ void setup()
 
   /* create mutex semaphore for serial communication */
   xSerialSemaphore = xSemaphoreCreateMutex();
-   /* create binary semaphore for tempeature reading */
-  xTempSemaphore = xSemaphoreCreateBinary(); 
+  /* create binary semaphore for tempeature reading */
+  xLM35DZSemaphore = xSemaphoreCreateBinary(); 
+  /* create binary semaphore for humidity reading */
+  xDHT11Semaphore = xSemaphoreCreateBinary(); 
+  /* create binary semaphore for gas reading */
+  xMQ2Semaphore = xSemaphoreCreateBinary(); 
 
   /* create tasks fcr serial communication, temperature, humidity, and gas */
-  xTaskCreate(temperature_task, "temp_task", 128, NULL, 2, NULL);
-  xTaskCreate(serial_task, "temp_task", 128, NULL, 2, NULL);
+  xTaskCreate(LM35DZ_task, "LM35DZ_task", 128, NULL, 2, NULL);
+  xTaskCreate(DHT11_task,  "DHT11_task",  128, NULL, 2, NULL);
+  xTaskCreate(MQ2_task,    "MQ2_task",    128, NULL, 2, NULL);
+  xTaskCreate(serial_task, "serial_task", 128, NULL, 2, NULL);
 }
 
 /* ~~~~~~~~~~ infinite loop ~~~~~~~~~~  */
@@ -102,15 +112,23 @@ void serial_task(void *pvParameters)
          Serial.write("REQ_TEMP_ACK");
          xSemaphoreGive(xSerialSemaphore);+
          /* read temperature */
-         xSemaphoreGive(xTempSemaphore);
+         xSemaphoreGive(xLM35DZSemaphore);
       }
       else if(REQ_HUM == data)
       {
+         xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
          Serial.write("REQ_HUM_ACK");
+         xSemaphoreGive(xSerialSemaphore);
+         /* read temperature */
+         xSemaphoreGive(xDHT11Semaphore);
       }
       else if(REQ_GAS == data)
       {
+         xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
          Serial.write("REQ_GAS_ACK");
+         xSemaphoreGive(xSerialSemaphore);
+         /* read temperature */
+         xSemaphoreGive(xMQ2Semaphore);
       }
       else if("exit" == data)
       {
@@ -122,19 +140,17 @@ void serial_task(void *pvParameters)
   delay(200); 
 }
 
-
-
-void temperature_task(void *pvParameters)
+void LM35DZ_task(void *pvParameters)
 {
    float celcius_temp;
    
    for(;;)
    {
     /* wait until the temperature semaphore is released */
-    xSemaphoreTake(xTempSemaphore, portMAX_DELAY);
+    xSemaphoreTake(xLM35DZSemaphore, portMAX_DELAY);
     /* read temperature value from sensor */
     celcius_temp = LM35DZ_get_temperature_celsius();
-    
+    /* send data to GUI*/
     xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
     Serial.print(LM35DZ_get_temperature_celsius());
     Serial.print("\n\r");
@@ -142,7 +158,30 @@ void temperature_task(void *pvParameters)
    }
 }
 
+void DHT11_task(void *pvParameters)
+{
+  float humidity;
+   
+   for(;;)
+   {
+    xSemaphoreTake(xDHT11Semaphore, portMAX_DELAY);
+    
+    xSemaphoreTake(xSerialSemaphore, ( TickType_t ) 5);
+    humidity = dht.readHumidity(DHT11_IO_PIN);
+    Serial.print(humidity);
+    Serial.print("\n\r");
+    xSemaphoreGive(xSerialSemaphore);
+   }
+}
 
+void MQ2_task(void *pvParameters)
+{
+
+  for(;;)
+  {
+    
+  }  
+}
 /* ~~~~~~~~~~ LM35DZ functions ~~~~~~~~~~  */
 
 /*  
@@ -313,12 +352,9 @@ static void MQ2_read_RO(void)
   delay(2000);
 }
 
-
 static void MQ2_read_sensor(void)
 {
- //0.46 
-
-   float sensorValue = 0;
+  float sensorValue = 0;
   const float RL = 1.0;
   const float CLEAN_AIR_RATIO = 9.80;
   float RS;
